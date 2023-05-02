@@ -53,7 +53,10 @@ class Tasca():
         self._id = id   
 
     def desa(self):
-        self._persistencia.desa(self)
+        resultat = self._persistencia.desa(self)
+        if resultat:
+            self.id = resultat.id
+        return resultat
 
     def __str__(self):
         resultat = {'id': self._id, 'titol': self._titol, 'done': self._done}

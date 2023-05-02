@@ -1,104 +1,110 @@
 #!/usr/bin/python3
-import sqlite3
+import mysql.connector
 import tasca
 
-class Persistencia_tasca_sqlite():
-    def __init__(self, ruta):
-        self._ruta = ruta
+class Persistencia_tasca_mysql():
+    def __init__(self):
+        self._host="localhost"
+        self._user="app"
+        self._password="1234"
+        self._database="todo_list"
+        self._conn = mysql.connector.connect(
+            host=self._host,
+            user=self._user,
+            password=self._password,
+            database=self._database
+            )
         if not self.existeixen_taules():
             self.reset_database()
 
     def desa(self, tasca):
-        self._conn = sqlite3.connect(self._ruta)
+        
         titol = tasca.titol
         done = tasca.done
         resultat = None
         consulta = "INSERT INTO tasques " \
                     + "(titol, done)" \
                     + f"VALUES('{titol}', {done});"
-        cursor = self._conn.cursor()
+        cursor = self._conn.cursor(buffered=True)
         try:
             cursor.execute(consulta)
             tasca.id = cursor.lastrowid
             resultat = tasca
-        except sqlite3.IntegrityError:
+        except mysql.connector.errors.IntegrityError:
             print("[X] IntegrityError: possiblement aquesta tasca ja està registrada.")
         self._conn.commit()
+        cursor.reset()
         cursor.close()
-        self._conn.close()
         return resultat
     
     def get_list(self):
-        self._conn = sqlite3.connect(self._ruta)
-        consulta = "SELECT titol, done, rowid FROM tasques;"
-        cursor = self._conn.cursor()
+        
+        consulta = "SELECT titol, done, id FROM tasques;"
+        cursor = self._conn.cursor(buffered=True)
         cursor.execute(consulta)
         llista = cursor.fetchall()
         resultat = []
         for registre in llista:
             tarea = tasca.Tasca(self, registre[0], registre[1], registre[2])
             resultat.append(tarea)
+        cursor.reset()
         cursor.close()
-        self._conn.close()
         return resultat
     
     def modifica_tasca(self, tasca):
         resultat = None
-        self._conn = sqlite3.connect(self._ruta)
+        
         titol = tasca.titol
         done = tasca.done
         id = tasca.id
-        consulta = f"update tasques set done={done}, titol='{titol}' where rowid={id};"
-        cursor = self._conn.cursor()
+        consulta = f"update tasques set done={done}, titol='{titol}' where id={id};"
+        cursor = self._conn.cursor(buffered=True)
         try:
             cursor.execute(consulta)
             resultat = tasca
-        except sqlite3.IntegrityError:
+        except mysql.connector.errors.IntegrityError:
             print("[X] IntegrityError: possiblement aquest titol ja existeix.")
         self._conn.commit()
+        cursor.reset()
         cursor.close()
-        self._conn.close()
         return resultat
     
     def esborra_tasca(self, id):
-        self._conn = sqlite3.connect(self._ruta)
-        consulta = f"delete from tasques where rowid={id};"
-        cursor = self._conn.cursor()
+        
+        consulta = f"delete from tasques where id={id};"
+        cursor = self._conn.cursor(buffered=True)
         cursor.execute(consulta)
         self._conn.commit()
+        cursor.reset()
         cursor.close()
-        self._conn.close()
 
     def existeixen_taules(self):
-        self._conn = sqlite3.connect(self._ruta)
         consulta = "SELECT * FROM tasques LIMIT 1;"
-        cursor = self._conn.cursor()
+        cursor = self._conn.cursor(buffered=True)
         try:
             cursor.execute(consulta)
-        except sqlite3.OperationalError:
+        except mysql.connector.errors.ProgrammingError:
+            cursor.reset()
             cursor.close()
-            self._conn.close()
             return False
         cursor.close()
-        self._conn.close()
         return True
 
     def reset_database(self):
-        self._conn = sqlite3.connect(self._ruta)
-        cursor = self._conn.cursor()
+        cursor = self._conn.cursor(buffered=True)
         consulta = "DROP TABLE if exists tasques;" 
         cursor.execute(consulta)
-        consulta = "CREATE TABLE if not exists tasques(titol TEXT UNIQUE, done BOOLEAN);"
+        consulta = "CREATE TABLE if not exists tasques(id int not null auto_increment, titol TEXT UNIQUE, done BOOLEAN, primary key(id));"
         cursor.execute(consulta)
         self._conn.commit()
+        cursor.reset()
         cursor.close()
-        self._conn.close()
 
 
 def main():
     id = None
     titol = "Fer la bugada"
-    persistencia = Persistencia_tasca_sqlite("deleteme.bd")
+    persistencia = Persistencia_tasca_mysql()
     una_tasca = tasca.Tasca(persistencia, titol)
     print(persistencia.desa(una_tasca))
     tasques = persistencia.get_list()
